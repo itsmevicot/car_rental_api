@@ -1,0 +1,9 @@
+# Arquivo de configuração
+# TODO: Mover números mágicos de main.py para cá
+
+DISCOUNT_THRESHOLD_WEEK = 7
+DISCOUNT_THRESHOLD_SHORT = 3
+DISCOUNT_RATE_WEEK = 0.1
+DISCOUNT_RATE_SHORT = 0.05
+LATE_FEE_MULTIPLIER = 1.5
+

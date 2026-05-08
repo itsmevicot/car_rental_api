@@ -1,0 +1,19 @@
+services:
+  web:
+    build: ./
+    container_name: car_rental_api
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./wheeler_test:/app
+      - sqlite_data:/app/data
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=car_rental.settings
+    stdin_open: true
+    tty: true
+
+volumes:
+  sqlite_data:
+
