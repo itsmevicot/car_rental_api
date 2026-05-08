@@ -6,7 +6,6 @@ from django.db import models
 from uuid_extensions import uuid7
 
 from customers.models import Customer
-from rentals.models import Rental
 
 
 class CustomerTier(models.TextChoices):

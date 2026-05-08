@@ -7,7 +7,6 @@ from decimal import Decimal
 from django.db import models
 from uuid_extensions import uuid7
 
-from cars.models import Car
 from customers.models import Customer
 
 

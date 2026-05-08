@@ -20,8 +20,8 @@ from rentals.constants import (
     DISCOUNT_THRESHOLD_WEEK,
     LATE_FEE_MULTIPLIER,
 )
-from rentals.exceptions import CarNotAvailableError, RentalAlreadyReturnedError
 from rentals.dataclasses import RentalReturnResult
+from rentals.exceptions import CarNotAvailableError, RentalAlreadyReturnedError
 from rentals.repositories import RentalRepository
 
 if TYPE_CHECKING:
