@@ -327,6 +327,43 @@
           ]
         },
         {
+          "name": "Get Admin Me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('admin_customer_id', body.data.id);",
+                  "pm.test('admin id captured', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Login Bronze",
           "request": {
             "method": "POST",
@@ -2965,7 +3002,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
+                "value": "Bearer {{active_token}}"
               }
             ]
           },
@@ -3896,7 +3933,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{bronze_token}}"
+                "value": "Bearer {{active_token}}"
               }
             ]
           },
@@ -3932,7 +3969,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{bronze_token}}"
+                "value": "Bearer {{active_token}}"
               }
             ]
           },
