@@ -2,7 +2,7 @@
   "info": {
     "name": "Car Rental API",
     "_postman_id": "7aa2eac2-5f65-4be8-8bd7-5bff1c8e0b65",
-    "description": "Collection for the car rental API. Run `Bootstrap` first. The bootstrap creates fresh bronze/silver/gold users, logs them in, seeds rentals to reach each loyalty tier, and stores the ids/tokens required by the role-based scenarios. Admin flows require `admin_email` and `admin_password` to be set in the collection or environment.",
+    "description": "Collection for the car rental API. Import `postman_environment.json` and select the `Car Rental API - Local` environment before running. Run `Bootstrap` first — it registers fresh bronze/silver/gold users, logs them in, seeds rentals to reach each loyalty tier, and stores the ids/tokens required by the role-based scenarios. The `admin_email` and `admin_password` variables must match the superuser created by Docker (defaults from `.env.example`: admin@admin.com / admin).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -12,11 +12,11 @@
     },
     {
       "key": "admin_email",
-      "value": "admin@example.com"
+      "value": "admin@admin.com"
     },
     {
       "key": "admin_password",
-      "value": "testpass123"
+      "value": "admin"
     },
     {
       "key": "scenario_password",
