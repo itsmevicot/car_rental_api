@@ -44,7 +44,9 @@ def pdf_response(transactions, email: str) -> HttpResponse:
     pdf.setFont("Helvetica", 10)
     y = 770
     for txn in transactions:
-        pdf.drawString(50, y, f"{txn.created_at.date()}  {txn.type:8}  {txn.points:+5}pts  {txn.reason}")
+        pdf.drawString(
+            50, y, f"{txn.created_at.date()}  {txn.type:8}  {txn.points:+5}pts  {txn.reason}"
+        )
         y -= 18
         if y < 50:
             pdf.showPage()

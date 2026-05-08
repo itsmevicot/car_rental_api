@@ -64,7 +64,9 @@ class RewardHistoryView(RewardHistoryMixin, ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = RewardTransactionSerializer
 
-    @extend_schema(parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)})
+    @extend_schema(
+        parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)}
+    )
     def get(self, request, *args, **kwargs):
         """Return paginated reward history for the authenticated user."""
         export, filtered = self.apply_filters_or_export(
@@ -78,7 +80,9 @@ class RewardHistoryView(RewardHistoryMixin, ListAPIView):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):  # pragma: no cover
             return _reward_service.empty_history()
-        return getattr(self, "_filtered_queryset", _reward_service.get_customer_history(self.request.user))
+        return getattr(
+            self, "_filtered_queryset", _reward_service.get_customer_history(self.request.user)
+        )
 
 
 @extend_schema(tags=["Rewards"])
@@ -113,7 +117,9 @@ class CustomerRewardHistoryView(RewardHistoryMixin, ListAPIView):
     permission_classes = (IsSelfByEmailOrStaff,)
     serializer_class = RewardTransactionSerializer
 
-    @extend_schema(parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)})
+    @extend_schema(
+        parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)}
+    )
     def get(self, request, *args, **kwargs):
         """Return paginated reward history for the given customer email."""
         email = self.kwargs["customer_email"]
@@ -129,7 +135,9 @@ class CustomerRewardHistoryView(RewardHistoryMixin, ListAPIView):
         if getattr(self, "swagger_fake_view", False):  # pragma: no cover
             return _reward_service.empty_history()
         email = self.kwargs["customer_email"]
-        return getattr(self, "_filtered_queryset", _reward_service.get_customer_history_by_email(email))
+        return getattr(
+            self, "_filtered_queryset", _reward_service.get_customer_history_by_email(email)
+        )
 
 
 @extend_schema(tags=["Rewards"])
@@ -152,7 +160,9 @@ class CustomerRewardHistoryByIdView(RewardHistoryMixin, ListAPIView):
     permission_classes = (IsAdminUser,)
     serializer_class = RewardTransactionSerializer
 
-    @extend_schema(parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)})
+    @extend_schema(
+        parameters=_HISTORY_PARAMETERS, responses={200: RewardTransactionSerializer(many=True)}
+    )
     def get(self, request, *args, **kwargs):
         """Return paginated reward history for the given customer identifier."""
         customer = _reward_service.resolve_customer_by_id(self.kwargs["customer_id"])

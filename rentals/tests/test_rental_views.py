@@ -216,9 +216,7 @@ class TestRentalDetailView:
         assert response.status_code == 200
         assert response.data["data"]["id"] == str(active_rental.id)
 
-    def test_staff_can_get_any_rental(
-        self, staff_client: APIClient, active_rental: Rental
-    ) -> None:
+    def test_staff_can_get_any_rental(self, staff_client: APIClient, active_rental: Rental) -> None:
         response = staff_client.get(f"/api/rentals/{active_rental.id}/")
         assert response.status_code == 200
         assert response.data["data"]["id"] == str(active_rental.id)

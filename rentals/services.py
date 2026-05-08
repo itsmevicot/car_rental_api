@@ -82,7 +82,9 @@ class RentalService:
             return self._customers.create_user(email=email, password=None, first_name=name)
         return None
 
-    def create_rental(self, car_id: UUID, customer, customer_name: str, customer_email: str, days: int):
+    def create_rental(
+        self, car_id: UUID, customer, customer_name: str, customer_email: str, days: int
+    ):
         logger.info(
             "rental_create_started",
             car_id=str(car_id),
