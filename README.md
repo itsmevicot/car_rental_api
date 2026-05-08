@@ -99,30 +99,49 @@ Linux/macOS:
 ./setup.sh
 ```
 
-Windows:
+Windows (CMD):
 
 ```bat
 setup.cmd
 ```
 
+Windows (PowerShell):
+
+```powershell
+cmd /c setup.cmd
+```
+
+> **Note for Windows users**: `setup.cmd` is a CMD script and must be run
+> from CMD or via `cmd /c setup.cmd` from PowerShell. Running it directly
+> in a PowerShell terminal may produce unexpected behaviour.
+
 What the scripts do:
 
 - create `.env` from `.env.example` when needed
-- install dependencies with `uv sync`
-- start the PostgreSQL container
-- run migrations
-- load seed data when the car catalog is empty
+- start both the PostgreSQL and API services via Docker Compose
+- migrations and seed data are applied automatically by the container on first boot
 
 ### Option 2: Manual setup
 
+Linux/macOS / Git Bash:
+
 ```bash
 cp .env.example .env
-set -a && source .env && set +a
-uv sync
-docker compose up -d db
-uv run python manage.py migrate
-uv run python manage.py shell < init_data.py
-uv run python manage.py runserver
+docker compose up --build -d
+```
+
+Windows CMD:
+
+```bat
+copy .env.example .env
+docker compose up --build -d
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build -d
 ```
 
 API base URL:
