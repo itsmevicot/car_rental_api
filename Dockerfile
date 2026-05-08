@@ -13,7 +13,7 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8000
 
