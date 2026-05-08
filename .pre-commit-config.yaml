@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pytest-coverage
+        name: pytest coverage
+        entry: uv run --with pytest --with pytest-django --with pytest-cov python -m pytest --cov=core --cov=cars --cov=customers --cov=rentals --cov=rewards --cov-report=term-missing -q -s
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

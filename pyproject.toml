@@ -1,0 +1,76 @@
+[project]
+name = "car-rental"
+version = "0.1.0"
+description = "Car rental API with customer rewards"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=4.2,<5.0",
+    "djangorestframework>=3.14",
+    "djangorestframework-simplejwt>=5.3",
+    "psycopg[binary]>=3.1",
+    "django-filter>=23.0",
+    "drf-spectacular>=0.27",
+    "structlog>=24.0",
+    "uuid7>=0.1",
+    "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "ty>=0.0.1a16",
+    "requests>=2.33",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "car_rental.settings"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["core/tests", "cars/tests", "customers/tests", "rentals/tests", "rewards/tests"]
+addopts = "--tb=short -q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "BLE001"]
+ignore = ["E501"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+exclude = [
+    "*/migrations/**",
+    "*/tests/**",
+    "concurrency_test.py",
+]
+
+[[tool.ty.overrides]]
+include = [
+    "cars/models.py",
+    "customers/models.py",
+    "rentals/models/**/*.py",
+    "rewards/models.py",
+]
+
+[tool.ty.overrides.rules]
+invalid-assignment = "ignore"
+
+[tool.coverage.run]
+source = ["core", "cars", "customers", "rentals", "rewards"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/admin.py",
+    "*/apps.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
