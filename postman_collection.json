@@ -1,0 +1,4830 @@
+{
+  "info": {
+    "name": "Car Rental API",
+    "_postman_id": "7aa2eac2-5f65-4be8-8bd7-5bff1c8e0b65",
+    "description": "Collection for the car rental API. Run `Bootstrap` first. The bootstrap creates fresh bronze/silver/gold users, logs them in, seeds rentals to reach each loyalty tier, and stores the ids/tokens required by the role-based scenarios. Admin flows require `admin_email` and `admin_password` to be set in the collection or environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "testpass123"
+    },
+    {
+      "key": "scenario_password",
+      "value": "Passw0rd!123"
+    },
+    {
+      "key": "missing_uuid",
+      "value": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "key": "invalid_email",
+      "value": "not-an-email"
+    }
+  ],
+  "item": [
+    {
+      "name": "Bootstrap",
+      "item": [
+        {
+          "name": "Initialize Run Context",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const suffix = Date.now().toString();",
+                  "pm.collectionVariables.set('run_suffix', suffix);",
+                  "pm.collectionVariables.set('scenario_password', 'Passw0rd!123');",
+                  "pm.collectionVariables.set('bronze_name', 'Bronze Runner');",
+                  "pm.collectionVariables.set('silver_name', 'Silver Runner');",
+                  "pm.collectionVariables.set('gold_name', 'Gold Runner');",
+                  "pm.collectionVariables.set('bronze_email', `bronze.${suffix}@example.com`);",
+                  "pm.collectionVariables.set('silver_email', `silver.${suffix}@example.com`);",
+                  "pm.collectionVariables.set('gold_email', `gold.${suffix}@example.com`);",
+                  "pm.collectionVariables.unset('bronze_token');",
+                  "pm.collectionVariables.unset('silver_token');",
+                  "pm.collectionVariables.unset('gold_token');",
+                  "pm.collectionVariables.unset('bronze_refresh_token');",
+                  "pm.collectionVariables.unset('silver_refresh_token');",
+                  "pm.collectionVariables.unset('gold_refresh_token');",
+                  "pm.collectionVariables.unset('bronze_customer_id');",
+                  "pm.collectionVariables.unset('silver_customer_id');",
+                  "pm.collectionVariables.unset('gold_customer_id');",
+                  "pm.collectionVariables.unset('bronze_closed_rental_id');",
+                  "pm.collectionVariables.unset('bronze_active_rental_id');",
+                  "pm.collectionVariables.unset('silver_active_rental_id');",
+                  "pm.collectionVariables.unset('gold_active_rental_id');",
+                  "pm.collectionVariables.unset('bronze_transaction_id');",
+                  "pm.collectionVariables.unset('silver_transaction_id');",
+                  "pm.collectionVariables.unset('gold_transaction_id');",
+                  "pm.collectionVariables.unset('silver_redeem_txn_id');",
+                  "pm.collectionVariables.unset('gold_redeem_txn_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Seed Car Catalog Variables",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/cars/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const cars = pm.response.json().data || [];",
+                  "const economic = cars.filter((car) => car.category === 'economic');",
+                  "const standard = cars.filter((car) => car.category === 'standard');",
+                  "const premium = cars.filter((car) => car.category === 'premium');",
+                  "pm.test('enough cars to execute bootstrap', function () {",
+                  "  pm.expect(economic.length).to.be.greaterThan(2);",
+                  "  pm.expect(standard.length).to.be.greaterThan(0);",
+                  "  pm.expect(premium.length).to.be.greaterThan(0);",
+                  "});",
+                  "pm.collectionVariables.set('public_car_id', cars[0].id);",
+                  "pm.collectionVariables.set('economic_car_id_1', economic[0].id);",
+                  "pm.collectionVariables.set('economic_car_id_2', economic[1].id);",
+                  "pm.collectionVariables.set('economic_car_id_3', economic[2].id);",
+                  "pm.collectionVariables.set('standard_car_id_1', standard[0].id);",
+                  "pm.collectionVariables.set('premium_car_id_1', premium[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Bronze User",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{bronze_email}}\",\n  \"first_name\": \"Bronze\",\n  \"last_name\": \"Runner\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_customer_id', body.data.id);",
+                  "pm.test('bronze email persisted', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('bronze_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Silver User",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{silver_email}}\",\n  \"first_name\": \"Silver\",\n  \"last_name\": \"Runner\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_customer_id', body.data.id);",
+                  "pm.test('silver email persisted', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('silver_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Gold User",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{gold_email}}\",\n  \"first_name\": \"Gold\",\n  \"last_name\": \"Runner\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_customer_id', body.data.id);",
+                  "pm.test('gold email persisted', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('gold_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.expect(pm.variables.get('admin_email'), 'set admin_email in your collection or environment').to.be.ok;",
+                  "pm.expect(pm.variables.get('admin_password'), 'set admin_password in your collection or environment').to.be.ok;"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', body.access);",
+                  "pm.collectionVariables.set('admin_refresh_token', body.refresh);",
+                  "pm.test('jwt pair returned', function () { pm.expect(body.access).to.be.a('string'); pm.expect(body.refresh).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Bronze",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{bronze_email}}\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_token', body.access);",
+                  "pm.collectionVariables.set('bronze_refresh_token', body.refresh);",
+                  "pm.test('jwt pair returned', function () { pm.expect(body.access).to.be.a('string'); pm.expect(body.refresh).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Silver",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{silver_email}}\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_token', body.access);",
+                  "pm.collectionVariables.set('silver_refresh_token', body.refresh);",
+                  "pm.test('jwt pair returned', function () { pm.expect(body.access).to.be.a('string'); pm.expect(body.refresh).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Gold",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{gold_email}}\",\n  \"password\": \"{{scenario_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_token', body.access);",
+                  "pm.collectionVariables.set('gold_refresh_token', body.refresh);",
+                  "pm.test('jwt pair returned', function () { pm.expect(body.access).to.be.a('string'); pm.expect(body.refresh).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Bronze Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/refresh/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                "refresh",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{bronze_refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_token_refreshed', body.access);",
+                  "pm.test('access token returned', function () { pm.expect(body.access).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bronze_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_customer_id', body.data.id);",
+                  "pm.test('bronze me matches email', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('bronze_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Silver Me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{silver_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_customer_id', body.data.id);",
+                  "pm.test('silver me matches email', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('silver_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Gold Me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gold_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_customer_id', body.data.id);",
+                  "pm.test('gold me matches email', function () { pm.expect(body.data.email).to.eql(pm.collectionVariables.get('gold_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bronze Setup Create Closed Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_1}}\",\n  \"customer_name\": \"{{bronze_name}}\",\n  \"customer_email\": \"{{bronze_email}}\",\n  \"days\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_closed_rental_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bronze Setup Return Closed Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{bronze_closed_rental_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{bronze_closed_rental_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bronze Setup Create Active Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_2}}\",\n  \"customer_name\": \"{{bronze_name}}\",\n  \"customer_email\": \"{{bronze_email}}\",\n  \"days\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bronze_active_rental_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Silver Setup Create Rental 1",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{silver_name}}\",\n  \"customer_email\": \"{{silver_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_seed_rental_1_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Silver Setup Return Rental 1",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{silver_seed_rental_1_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{silver_seed_rental_1_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Silver Setup Create Rental 2",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{silver_name}}\",\n  \"customer_email\": \"{{silver_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_seed_rental_2_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Silver Setup Return Rental 2",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{silver_seed_rental_2_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{silver_seed_rental_2_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Silver Setup Create Active Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{standard_car_id_1}}\",\n  \"customer_name\": \"{{silver_name}}\",\n  \"customer_email\": \"{{silver_email}}\",\n  \"days\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_active_rental_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Create Rental 1",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{gold_name}}\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_seed_rental_1_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Return Rental 1",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{gold_seed_rental_1_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{gold_seed_rental_1_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Create Rental 2",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{gold_name}}\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_seed_rental_2_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Return Rental 2",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{gold_seed_rental_2_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{gold_seed_rental_2_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Create Rental 3",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{gold_name}}\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_seed_rental_3_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Return Rental 3",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{gold_seed_rental_3_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{gold_seed_rental_3_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Create Rental 4",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{gold_name}}\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_seed_rental_4_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Return Rental 4",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{gold_seed_rental_4_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{gold_seed_rental_4_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('rental returned', function () { pm.expect(body.data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gold Setup Create Active Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{premium_car_id_1}}\",\n  \"customer_name\": \"{{gold_name}}\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_active_rental_id', body.data.id);",
+                  "pm.test('rental id returned', function () { pm.expect(body.data.id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assert Bronze Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bronze_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('bronze tier is Bronze', function () { pm.expect(body.data.tier).to.eql('Bronze'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assert Silver Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{silver_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('silver tier is Silver', function () { pm.expect(body.data.tier).to.eql('Silver'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assert Gold Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gold_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('gold tier is Gold', function () { pm.expect(body.data.tier).to.eql('Gold'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture Bronze Transaction",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bronze_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('history has at least one transaction', function () { pm.expect(body.data.length).to.be.greaterThan(0); });",
+                  "pm.collectionVariables.set('bronze_transaction_id', body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture Silver Transaction",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{silver_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('history has at least one transaction', function () { pm.expect(body.data.length).to.be.greaterThan(0); });",
+                  "pm.collectionVariables.set('silver_transaction_id', body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture Gold Transaction",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gold_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('history has at least one transaction', function () { pm.expect(body.data.length).to.be.greaterThan(0); });",
+                  "pm.collectionVariables.set('gold_transaction_id', body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Public & Docs",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('healthy payload', function () { pm.expect(pm.response.json().data.status).to.eql('healthy'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/ready/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ready",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ready payload', function () { pm.expect(pm.response.json().data.database).to.eql('up'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Cars",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/cars/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('car list envelope present', function () { pm.expect(body.data).to.be.an('array'); });",
+                  "pm.test('car list is paginated', function () { pm.expect(body.meta).to.be.an('object'); pm.expect(body.meta).to.have.property('count'); pm.expect(body.meta).to.have.property('next'); pm.expect(body.meta).to.have.property('previous'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Car Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/cars/{{public_car_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars",
+                "{{public_car_id}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('car id matches', function () { pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('public_car_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Car",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/cars/{{missing_uuid}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cars",
+                "{{missing_uuid}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Schema",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/schema/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "schema",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/docs/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "docs",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReDoc",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/redoc/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "redoc",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get My Profile Without Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Profile With Invalid Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{invalid_token_placeholder}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('invalid_token_placeholder', 'this.is.not.valid');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Invalid Payload",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{invalid_email}}\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation envelope', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Wrong Password",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{bronze_email}}\",\n  \"password\": \"wrong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('invalid credentials', function () { pm.expect(pm.response.json().error.code).to.eql('authentication_failed'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token Invalid",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/token/refresh/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "token",
+                "refresh",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"not-a-refresh-token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Rentals Without Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Without Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_1}}\",\n  \"days\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Return Rental Without Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{bronze_active_rental_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{bronze_active_rental_id}}",
+                "return",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards Summary Without Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards History Without Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem Without Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{bronze_active_rental_id}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Reward Transaction Without Token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{bronze_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{bronze_transaction_id}}",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('unauthorized envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_authenticated'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin View",
+      "item": [
+        {
+          "name": "Get Admin Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('admin email matches configured login', function () { pm.expect(pm.response.json().data.email).to.eql(pm.variables.get('admin_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Rentals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('admin sees seeded active rentals', function () { pm.expect(pm.response.json().meta.count).to.be.at.least(9); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rental Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/stats/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "stats",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const stats = pm.response.json().data;",
+                  "pm.test('stats payload present', function () { pm.expect(stats).to.have.property('total_rentals'); pm.expect(stats).to.have.property('active_rentals'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rentals By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customer/{{bronze_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customer",
+                "{{bronze_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('bronze rental list present', function () { pm.expect(pm.response.json().data.length).to.be.at.least(2); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rentals By Customer ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customers/{{bronze_customer_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customers",
+                "{{bronze_customer_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Email Rentals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customer/nobody@example.com/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customer",
+                "nobody@example.com",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('empty rental list', function () { pm.expect(pm.response.json().meta.count).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Customer Rentals By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customers/{{missing_uuid}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customers",
+                "{{missing_uuid}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rewards Summary By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{bronze_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{bronze_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('bronze tier visible to admin', function () { pm.expect(pm.response.json().data.tier).to.eql('Bronze'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rewards History By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{bronze_email}}/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{bronze_email}}",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Email Rewards Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/nobody@example.com/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "nobody@example.com",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('missing email resolves to zero balance', function () { pm.expect(pm.response.json().data.total_points).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rewards Summary By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customers/{{bronze_customer_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customers",
+                "{{bronze_customer_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Rewards History By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customers/{{bronze_customer_id}}/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customers",
+                "{{bronze_customer_id}}",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Customer Rewards By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customers/{{missing_uuid}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customers",
+                "{{missing_uuid}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bronze Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{bronze_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{bronze_transaction_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('breakdown returned', function () { pm.expect(pm.response.json().data).to.have.property('breakdown'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff Redeem Silver Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{silver_active_rental_id}}\",\n  \"customer_email\": \"{{silver_email}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_redeem_txn_id', body.data.id);",
+                  "pm.test('redeem transaction created', function () { pm.expect(body.data.type).to.eql('redeemed'); pm.expect(body.data.points).to.eql(-100); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Staff Redeem Missing Customer Email",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{silver_active_rental_id}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation envelope', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Customer Rewards History By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customers/{{missing_uuid}}/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customers",
+                "{{missing_uuid}}",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Missing Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{missing_uuid}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{missing_uuid}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rental Detail By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{bronze_active_rental_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{bronze_active_rental_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('admin can inspect any rental', function () { pm.expect(body.data.id).to.eql(pm.collectionVariables.get('bronze_active_rental_id')); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('active_role', 'admin');",
+              "pm.collectionVariables.set('active_token', pm.collectionVariables.get('admin_token'));",
+              "pm.collectionVariables.set('active_email', pm.collectionVariables.get('admin_email'));",
+              "pm.collectionVariables.set('active_customer_id', pm.collectionVariables.get('admin_customer_id'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bronze View",
+      "item": [
+        {
+          "name": "Get Bronze Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('bronze email matches', function () { pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('bronze_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List My Rentals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('bronze sees only own rentals', function () { pm.expect(pm.response.json().meta.count).to.eql(2); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rentals By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customer/{{bronze_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customer",
+                "{{bronze_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('bronze tier confirmed', function () { pm.expect(pm.response.json().data.tier).to.eql('Bronze'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('compact history has no breakdown', function () { const first = pm.response.json().data[0]; if (first) pm.expect(first).to.not.have.property('breakdown'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{bronze_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{bronze_transaction_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('breakdown returned', function () { pm.expect(pm.response.json().data).to.have.property('breakdown'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Missing Fields",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error envelope', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Invalid Email",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_3}}\",\n  \"customer_name\": \"Bronze Runner\",\n  \"customer_email\": \"{{invalid_email}}\",\n  \"days\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error envelope', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Missing Car",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{missing_uuid}}\",\n  \"customer_name\": \"Bronze Runner\",\n  \"customer_email\": \"{{bronze_email}}\",\n  \"days\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found error', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Zero Days",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_3}}\",\n  \"customer_name\": \"Bronze Runner\",\n  \"customer_email\": \"{{bronze_email}}\",\n  \"days\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error envelope', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental With Mismatched Email",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_3}}\",\n  \"customer_name\": \"Bronze Runner\",\n  \"customer_email\": \"{{silver_email}}\",\n  \"days\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 or 400', function () { pm.expect([400, 403]).to.include(pm.response.code); });",
+                  "pm.test('permission envelope', function () { pm.expect(pm.response.json().error.code).to.match(/permission_denied|validation_error/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Silver Rentals By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customer/{{silver_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customer",
+                "{{silver_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 or 400', function () { pm.expect([400, 403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Silver Rewards By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{silver_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{silver_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 or 400', function () { pm.expect([400, 403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Silver Rewards History By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{silver_email}}/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{silver_email}}",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403 or 400', function () { pm.expect([400, 403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Rentals By Customer ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/customers/{{bronze_customer_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "customers",
+                "{{bronze_customer_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Rental Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/stats/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "stats",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Return Missing Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{missing_uuid}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{missing_uuid}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Return Silver Active Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{silver_active_rental_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{silver_active_rental_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('permission denied', function () { pm.expect(pm.response.json().error.code).to.eql('permission_denied'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Silver Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{silver_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{silver_transaction_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem With Insufficient Points",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{bronze_active_rental_id}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('insufficient points error', function () { pm.expect(pm.response.json().error.code).to.eql('insufficient_points'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem Other Customer Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{silver_active_rental_id}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('customer mismatch error', function () { pm.expect(pm.response.json().error.code).to.eql('customer_mismatch'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem Missing Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{missing_uuid}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('not found envelope', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Own Rental Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{bronze_active_rental_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{bronze_active_rental_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bronze_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('customer can read own rental detail', function () { pm.expect(body.data.id).to.eql(pm.collectionVariables.get('bronze_active_rental_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Other Customer Rental Detail Hidden",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{silver_active_rental_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{silver_active_rental_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bronze_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('foreign rental is hidden', function () { pm.expect(pm.response.json().error.code).to.eql('not_found'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('active_role', 'bronze');",
+              "pm.collectionVariables.set('active_token', pm.collectionVariables.get('bronze_token'));",
+              "pm.collectionVariables.set('active_email', pm.collectionVariables.get('bronze_email'));",
+              "pm.collectionVariables.set('active_customer_id', pm.collectionVariables.get('bronze_customer_id'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Silver View",
+      "item": [
+        {
+          "name": "Get Silver Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('silver email matches', function () { pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('silver_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('silver tier confirmed', function () { pm.expect(pm.response.json().data.tier).to.eql('Silver'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{silver_email}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{silver_email}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards History By Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/customer/{{silver_email}}/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "customer",
+                "{{silver_email}}",
+                "history",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter Rewards History By Type",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "earned"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "(pm.response.json().data || []).forEach((item) => pm.expect(item.type).to.eql('earned'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Order Rewards History By Points",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "ordering",
+                  "value": "points"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const points = (pm.response.json().data || []).map((item) => item.points);",
+                  "pm.test('ascending order', function () { for (let i = 1; i < points.length; i += 1) pm.expect(points[i - 1]).to.be.at.most(points[i]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Export Rewards History CSV",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('csv content type', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Export Rewards History PDF",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "pdf"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('pdf content type', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Rewards Format",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "xml"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Rewards Type",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "redeemeda"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Rewards Ordering",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/history/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "ordering",
+                  "value": "pointss"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('validation error', function () { pm.expect(pm.response.json().error.code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem My Points",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{silver_active_rental_id}}\",\n  \"points_to_redeem\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('silver_redeem_txn_id', body.data.id);",
+                  "pm.test('redeemed 100 points', function () { pm.expect(body.data.type).to.eql('redeemed'); pm.expect(body.data.points).to.eql(-100); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{silver_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{silver_transaction_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('breakdown returned', function () { pm.expect(pm.response.json().data).to.have.property('breakdown'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('active_role', 'silver');",
+              "pm.collectionVariables.set('active_token', pm.collectionVariables.get('silver_token'));",
+              "pm.collectionVariables.set('active_email', pm.collectionVariables.get('silver_email'));",
+              "pm.collectionVariables.set('active_customer_id', pm.collectionVariables.get('silver_customer_id'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gold View",
+      "item": [
+        {
+          "name": "Get Gold Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('gold email matches', function () { pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('gold_email')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Rewards Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('gold tier confirmed', function () { pm.expect(pm.response.json().data.tier).to.eql('Gold'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List My Rentals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('gold has seeded rentals', function () { pm.expect(pm.response.json().meta.count).to.be.at.least(5); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Rental Success",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/create/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "create",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_id\": \"{{economic_car_id_3}}\",\n  \"customer_name\": \"Gold Runner\",\n  \"customer_email\": \"{{gold_email}}\",\n  \"days\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_created_rental_id', body.data.id);",
+                  "pm.test('week discount applied', function () { pm.expect(Number(body.data.duration_discount)).to.be.greaterThan(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Return Own Rental",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rentals/{{gold_created_rental_id}}/return/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{gold_created_rental_id}}",
+                "return",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('rental returned', function () { pm.expect(pm.response.json().data.returned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redeem My Points",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/rewards/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "apply",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": \"{{gold_active_rental_id}}\",\n  \"points_to_redeem\": 200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('gold_redeem_txn_id', body.data.id);",
+                  "pm.test('redeemed 200 points', function () { pm.expect(body.data.type).to.eql('redeemed'); pm.expect(body.data.points).to.eql(-200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Transaction Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rewards/transactions/{{gold_transaction_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rewards",
+                "transactions",
+                "{{gold_transaction_id}}",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('breakdown returned', function () { pm.expect(pm.response.json().data).to.have.property('breakdown'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Access Rental Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rentals/stats/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "stats",
+                ""
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{active_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('active_role', 'gold');",
+              "pm.collectionVariables.set('active_token', pm.collectionVariables.get('gold_token'));",
+              "pm.collectionVariables.set('active_email', pm.collectionVariables.get('gold_email'));",
+              "pm.collectionVariables.set('active_customer_id', pm.collectionVariables.get('gold_customer_id'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
